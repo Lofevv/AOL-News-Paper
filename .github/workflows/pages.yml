@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-      - name: Prepare website and request no search indexing
+      - name: Prepare AOL's Newspaper and request no search indexing
         run: |
           mkdir public
           cp outputs/*.html outputs/*.css outputs/*.js public/
@@ -29,13 +29,16 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          pattern = re.compile(r'(<head\b[^>]*>)', re.IGNORECASE)
+          head_pattern = re.compile(r'(<head\b[^>]*>)', re.IGNORECASE)
+          wordmark_pattern = re.compile(r'(<span class="wordmark-school">).*?(</span><span class="wordmark-title">).*?(</span>)')
           for page in Path("public").rglob("*.html"):
               html = page.read_text(encoding="utf-8")
+              html = html.replace("Academy of Leaders: The Newspaper", "AOL's Newspaper")
+              html = html.replace("The Academy of Leaders student newspaper", "AOL's student newspaper")
+              html = wordmark_pattern.sub(r"\1AOL's\2Newspaper\3", html)
               if "name=\"robots\"" not in html.lower():
-                  html, count = pattern.subn(r'\1\n  <meta name="robots" content="noindex, nofollow">', html, count=1)
-                  if count:
-                      page.write_text(html, encoding="utf-8")
+                  html, count = head_pattern.subn(r'\1\n  <meta name="robots" content="noindex, nofollow">', html, count=1)
+              page.write_text(html, encoding="utf-8")
           PY
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
