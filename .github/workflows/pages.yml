@@ -1,0 +1,46 @@
+name: Deploy school newspaper
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Prepare website and request no search indexing
+        run: |
+          mkdir public
+          cp outputs/*.html outputs/*.css outputs/*.js public/
+          cp -R outputs/assets outputs/articles public/
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          pattern = re.compile(r'(<head\b[^>]*>)', re.IGNORECASE)
+          for page in Path("public").rglob("*.html"):
+              html = page.read_text(encoding="utf-8")
+              if "name=\"robots\"" not in html.lower():
+                  html, count = pattern.subn(r'\1\n  <meta name="robots" content="noindex, nofollow">', html, count=1)
+                  if count:
+                      page.write_text(html, encoding="utf-8")
+          PY
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
